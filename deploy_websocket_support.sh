@@ -1,4 +1,4 @@
-#!/bin/bash
+﻿#!/bin/bash
 
 # Deploy WebSocket Support Script
 # เพิ่ม WebSocket support โดยไม่แก้ Gunicorn ที่มีอยู่แล้ว
@@ -22,7 +22,7 @@ User=ubuntu
 Group=ubuntu
 WorkingDirectory=/home/ubuntu/food_delivery_asean_mall
 Environment=PATH=/home/ubuntu/venv/bin
-ExecStart=/home/ubuntu/venv/bin/daphne -b 127.0.0.1 -p 8001 food_delivery_backend.asgi:application
+ExecStart=/home/ubuntu/venv/bin/daphne -b 127.0.0.1 -p 8001 taca_backend.asgi:application
 Restart=always
 RestartSec=3
 
@@ -106,7 +106,6 @@ server {
         add_header Cache-Control "public";
     }
 }
-EOF
 
 # 4. Install daphne if not exists
 echo "📦 Installing Daphne..."

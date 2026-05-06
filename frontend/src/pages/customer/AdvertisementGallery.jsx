@@ -135,7 +135,7 @@ const AdvertisementGallery = () => {
   // แสดง loading state
   if (loading) {
     return (
-      <div className="relative overflow-hidden bg-gray-200 rounded-xl h-32 sm:h-40 flex items-center justify-center">
+      <div className="relative overflow-hidden bg-gray-200 h-64 sm:h-96 md:h-[500px] flex items-center justify-center">
         <div className="text-gray-500">กำลังโหลด...</div>
       </div>
     );
@@ -147,7 +147,7 @@ const AdvertisementGallery = () => {
   }
 
   return (
-    <div className="relative overflow-hidden bg-gray-100 rounded-xl h-32 sm:h-40">
+    <div className="relative overflow-hidden bg-gray-100 h-64 sm:h-96 md:h-[500px]">
       <div
         ref={galleryRef}
         className="flex h-full overflow-x-auto select-none [&::-webkit-scrollbar]:hidden"

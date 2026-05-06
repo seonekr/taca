@@ -27,19 +27,20 @@ import {
 import { entertainmentVenueService, venueCategoryService, countryService, cityService } from '../../services/api';
 import { getTranslatedName, getTranslatedDescription } from '../../utils/translationHelpers';
 import MapPicker from '../../components/maps/MapPicker';
-import AddressPicker from '../../components/maps/AddressPicker';
+import AddressPickerLeaflet from '../../components/maps/AddressPickerLeaflet';
 
 const AdminEntertainmentVenues = () => {
   const { translate, availableLanguages, currentLanguage } = useLanguage();
   const [venues, setVenues] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [filteredVenues, setFilteredVenues] = useState([]);
   const [loading, setLoading] = useState(true);
   // eslint-disable-next-line no-unused-vars
   const [error, setError] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 20;
   const [selectedVenue, setSelectedVenue] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('view'); // 'view', 'edit', 'create', 'gallery'
@@ -62,6 +63,7 @@ const AdminEntertainmentVenues = () => {
   const importFileRef = useRef(null);
   /** ซ่อนแผนที่ชั่วคราวเพื่อเลื่อนฟอร์มโดยไม่ให้แผนที่ดัก scroll / zoom */
   const [venueMapExpanded, setVenueMapExpanded] = useState(true);
+  const [userLocation, setUserLocation] = useState(null);
   const [countriesList, setCountriesList] = useState([]);
   const [citiesList, setCitiesList] = useState([]);
   const [formData, setFormData] = useState({
@@ -80,19 +82,34 @@ const AdminEntertainmentVenues = () => {
     translations: {},
   });
 
+  // client-side search filter + pagination (ไม่เรียก API ทุกครั้งที่พิมพ์)
+  const filteredVenues = venues.filter((v) => {
+    if (!searchInput.trim()) return true;
+    const q = searchInput.trim().toLowerCase();
+    return (
+      (v.venue_name || '').toLowerCase().includes(q) ||
+      (v.description || '').toLowerCase().includes(q) ||
+      (v.category_name || '').toLowerCase().includes(q) ||
+      (v.address || '').toLowerCase().includes(q)
+    );
+  });
+  const totalPages = Math.ceil(filteredVenues.length / PAGE_SIZE);
+  const paginatedVenues = filteredVenues.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
+
   const fetchVenues = async () => {
     try {
       setLoading(true);
       setError(null);
-      const params = {};
-      if (searchTerm) params.search = searchTerm;
+      const params = { page_size: 500 };
       if (statusFilter !== 'all') params.status = statusFilter;
       if (typeFilter !== 'all') params.category = typeFilter;
-      
+
       const response = await entertainmentVenueService.getAll(params);
       const fetchedVenues = response.data?.results || response.data || [];
-      setVenues(fetchedVenues);
-      setFilteredVenues(fetchedVenues);
+      setVenues(Array.isArray(fetchedVenues) ? fetchedVenues : []);
     } catch (err) {
       console.error('Error fetching venues:', err);
       setError(err.response?.data?.detail || err.message || translate('entertainment.load_error') || 'เกิดข้อผิดพลาดในการโหลดข้อมูล');
@@ -112,6 +129,12 @@ const AdminEntertainmentVenues = () => {
 
   useEffect(() => {
     fetchCategories();
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => {}
+      );
+    }
   }, []);
 
   useEffect(() => {
@@ -156,10 +179,15 @@ const AdminEntertainmentVenues = () => {
     }
   }, [showModal, modalType]);
 
+  // reset to page 1 when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchInput]);
+
   useEffect(() => {
     fetchVenues();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, statusFilter, typeFilter, currentLanguage]);
+  }, [statusFilter, typeFilter, currentLanguage]);
 
 
   const handleCreate = () => {
@@ -486,13 +514,8 @@ const AdminEntertainmentVenues = () => {
     }
   };
 
-  const getUniqueCategories = () => {
-    const seen = new Set();
-    return venues
-      .filter((v) => v.category && v.category_name)
-      .filter((v) => { if (seen.has(v.category)) return false; seen.add(v.category); return true; })
-      .map((v) => ({ id: v.category, name: v.category_name }));
-  };
+  const getUniqueCategories = () =>
+    categories.map((c) => ({ id: c.category_id, name: c.category_name }));
 
   // ─── Excel Import ────────────────────────────────────────────────────────────
 
@@ -719,8 +742,8 @@ const AdminEntertainmentVenues = () => {
               <input
                 type="text"
                 placeholder={translate('entertainment.search_placeholder') || 'ค้นหาชื่อ, คำอธิบาย, หมวดหมู่...'}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-secondary-300 rounded-lg focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-300/80"
               />
             </div>
@@ -732,7 +755,7 @@ const AdminEntertainmentVenues = () => {
             </label>
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
               className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-300/80"
             >
               <option value="all">{translate('common.all') || 'ทั้งหมด'}</option>
@@ -747,7 +770,7 @@ const AdminEntertainmentVenues = () => {
             </label>
             <select
               value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
+              onChange={(e) => { setTypeFilter(e.target.value); setCurrentPage(1); }}
               className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:border-secondary-400 focus:outline-none focus:ring-2 focus:ring-secondary-300/80"
             >
               <option value="all">{translate('common.all') || 'ทั้งหมด'}</option>
@@ -791,8 +814,8 @@ const AdminEntertainmentVenues = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-secondary-200">
-              {filteredVenues.length > 0 ? (
-                filteredVenues.map((venue) => (
+              {paginatedVenues.length > 0 ? (
+                paginatedVenues.map((venue) => (
                   <tr key={venue.venue_id} className="hover:bg-secondary-50">
                     <td className="px-4 xl:px-6 py-4 whitespace-nowrap">
                       <div className="h-12 w-12 xl:h-16 xl:w-16 rounded-lg overflow-hidden bg-secondary-200">
@@ -894,10 +917,40 @@ const AdminEntertainmentVenues = () => {
         </div>
       </div>
 
+      {/* Pagination - Desktop */}
+      {filteredVenues.length > PAGE_SIZE && (
+        <div className="hidden lg:flex items-center justify-between bg-white rounded-b-lg border-t border-secondary-200 px-6 py-3 shadow-md">
+          <span className="text-sm text-secondary-600">
+            แสดง {Math.min((currentPage - 1) * PAGE_SIZE + 1, filteredVenues.length)}–{Math.min(currentPage * PAGE_SIZE, filteredVenues.length)} จาก {filteredVenues.length} รายการ
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage((p) => p - 1)}
+              className="rounded-lg border border-secondary-300 px-3 py-1.5 text-sm font-medium text-secondary-700 hover:bg-secondary-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              ← ก่อนหน้า
+            </button>
+            <span className="text-sm font-medium text-secondary-700">
+              หน้า {currentPage} / {totalPages}
+            </span>
+            <button
+              type="button"
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage((p) => p + 1)}
+              className="rounded-lg border border-secondary-300 px-3 py-1.5 text-sm font-medium text-secondary-700 hover:bg-secondary-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              ถัดไป →
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Venues Cards - Mobile/Tablet */}
       <div className="lg:hidden space-y-4">
-        {filteredVenues.length > 0 ? (
-          filteredVenues.map((venue) => (
+        {paginatedVenues.length > 0 ? (
+          paginatedVenues.map((venue) => (
             <div
               key={venue.venue_id}
               className="bg-white rounded-lg shadow-md p-4 hover:shadow-lg transition-shadow"
@@ -985,6 +1038,31 @@ const AdminEntertainmentVenues = () => {
           </div>
         )}
       </div>
+
+      {/* Pagination - Mobile/Tablet */}
+      {filteredVenues.length > PAGE_SIZE && (
+        <div className="lg:hidden flex items-center justify-between bg-white rounded-lg shadow-md px-4 py-3 mt-2">
+          <button
+            type="button"
+            disabled={currentPage === 1}
+            onClick={() => setCurrentPage((p) => p - 1)}
+            className="rounded-lg border border-secondary-300 px-3 py-1.5 text-sm font-medium text-secondary-700 hover:bg-secondary-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            ← ก่อนหน้า
+          </button>
+          <span className="text-sm text-secondary-600">
+            หน้า {currentPage} / {totalPages}
+          </span>
+          <button
+            type="button"
+            disabled={currentPage >= totalPages}
+            onClick={() => setCurrentPage((p) => p + 1)}
+            className="rounded-lg border border-secondary-300 px-3 py-1.5 text-sm font-medium text-secondary-700 hover:bg-secondary-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            ถัดไป →
+          </button>
+        </div>
+      )}
 
       {/* Modal */}
       {showModal && (
@@ -1229,7 +1307,7 @@ const AdminEntertainmentVenues = () => {
                       <label className="block text-sm font-medium text-secondary-700 mb-1">
                         {translate('entertainment.address_label') || 'ที่อยู่'} *
                       </label>
-                      <AddressPicker
+                      <AddressPickerLeaflet
                         value={formData.address}
                         onChange={(v) => setFormData((prev) => ({ ...prev, address: v }))}
                         onLocationSelect={(loc) => {
@@ -1242,13 +1320,14 @@ const AdminEntertainmentVenues = () => {
                         }}
                         placeholder={
                           translate('entertainment.address_search_placeholder') ||
-                          'พิมพ์ค้นหาที่อยู่หรือชื่อสถานที่ แล้วเลือกจากรายการ'
+                          'Type place name, address, coordinates or Plus Code'
+                        }
+                        referenceLocation={
+                          formData.latitude && formData.longitude
+                            ? { lat: parseFloat(formData.latitude), lng: parseFloat(formData.longitude) }
+                            : (userLocation || { lat: 17.97, lng: 102.63 })
                         }
                         required
-                        restrictCountry={false}
-                        placeTypes={null}
-                        showManualGeocodeButton={false}
-                        className=""
                       />
                     </div>
                     <div>
@@ -1320,8 +1399,8 @@ const AdminEntertainmentVenues = () => {
                           <MapPicker
                             showPlaceSearch={false}
                             initialCenter={{
-                              lat: formData.latitude ? parseFloat(formData.latitude) : 13.7563,
-                              lng: formData.longitude ? parseFloat(formData.longitude) : 100.5018
+                              lat: formData.latitude ? parseFloat(formData.latitude) : (userLocation?.lat ?? 17.97),
+                              lng: formData.longitude ? parseFloat(formData.longitude) : (userLocation?.lng ?? 102.63)
                             }}
                             onLocationSelect={(location) => {
                               setFormData((prev) => ({
@@ -1341,7 +1420,7 @@ const AdminEntertainmentVenues = () => {
                           <p className="mt-2 text-xs text-secondary-500">
                             <FaMapMarkerAlt className="mr-1 inline h-3 w-3 text-secondary-500" aria-hidden />
                             {translate('entertainment.map_hint') === 'entertainment.map_hint'
-                              ? 'เลื่อนแผนที่เพื่อปรับพิกัด — ค้นหาสถานที่ได้ที่ช่องที่อยู่ด้านบน'
+                              ? 'Drag the map to adjust coordinates — search for a place using the address field above'
                               : translate('entertainment.map_hint')}
                           </p>
                         </>
@@ -1349,7 +1428,7 @@ const AdminEntertainmentVenues = () => {
                         <div className="rounded-lg border border-dashed border-secondary-300 bg-secondary-50 px-4 py-3 text-sm text-secondary-600">
                           <p>
                             {translate('entertainment.map_collapsed_hint') ||
-                              'แผนที่ถูกซ่อนเพื่อเลื่อนฟอร์มได้สะดวก — ค้นหาสถานที่ที่ช่องที่อยู่ด้านบน กด «แสดงแผนที่» เมื่อต้องการปรับพิกัดบนแผนที่'}
+                              'Map hidden for easier scrolling — search for a place in the address field above. Click «Show Map» to adjust coordinates on the map.'}
                           </p>
                           {formData.latitude && formData.longitude ? (
                             <p className="mt-2 font-mono text-xs text-secondary-700">
@@ -1357,7 +1436,7 @@ const AdminEntertainmentVenues = () => {
                             </p>
                           ) : (
                             <p className="mt-2 text-xs text-secondary-500">
-                              {translate('entertainment.no_coordinates_yet') || 'ยังไม่ได้ตั้งพิกัด'}
+                              {translate('entertainment.no_coordinates_yet') || 'No coordinates set yet'}
                             </p>
                           )}
                         </div>

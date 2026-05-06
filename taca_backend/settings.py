@@ -1,4 +1,4 @@
-from pathlib import Path
+﻿from pathlib import Path
 from decouple import config
 import os
 from dotenv import load_dotenv
@@ -97,14 +97,14 @@ MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'food_delivery_backend.middleware.DisableCSRFMiddleware',  # Disable CSRF for API endpoints
+    'taca_backend.middleware.DisableCSRFMiddleware',  # Disable CSRF for API endpoints
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'food_delivery_backend.urls'
+ROOT_URLCONF = 'taca_backend.urls'
 
 TEMPLATES = [
     {
@@ -122,10 +122,10 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'food_delivery_backend.wsgi.application'
+WSGI_APPLICATION = 'taca_backend.wsgi.application'
 
 # ASGI application (used by Daphne for WebSocket)
-ASGI_APPLICATION = 'food_delivery_backend.asgi.application'
+ASGI_APPLICATION = 'taca_backend.asgi.application'
 
 # Channel layers (using in-memory for development, Redis for production)
 if DEBUG:
@@ -244,7 +244,7 @@ REST_FRAMEWORK = {
         'rest_framework.filters.SearchFilter',
         'rest_framework.filters.OrderingFilter',
     ],
-    'DEFAULT_PAGINATION_CLASS': 'food_delivery_backend.pagination.StandardResultsSetPagination',
+    'DEFAULT_PAGINATION_CLASS': 'taca_backend.pagination.StandardResultsSetPagination',
     'PAGE_SIZE': 12,
     'DATETIME_FORMAT': '%Y-%m-%d %H:%M:%S',
 }

@@ -129,7 +129,7 @@ const RestaurantLayout = ({ children }) => {
                 onClick={() => setSidebarOpen(false)}
                 className="flex items-center px-4 py-2 text-secondary-700 rounded-lg hover:bg-primary-50 hover:text-primary-600 transition-colors"
               >
-                <FaStore className="w-5 h-5 mr-2" /> {translate('restaurant.information') || 'Restaurant Information'}
+                <FaStore className="w-5 h-5 mr-2" /> {translate('restaurant.information') || 'Store Information'}
               </Link>
             </div>
           </nav>

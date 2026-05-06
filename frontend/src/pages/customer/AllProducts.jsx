@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { useCart } from "../../contexts/CartContext";
 import { useGuestCart } from "../../contexts/GuestCartContext";
 import { useAuth } from "../../contexts/AuthContext";
@@ -7,12 +7,21 @@ import api from "../../services/api";
 import { useLanguage } from "../../contexts/LanguageContext";
 import { formatPrice } from "../../utils/formatPrice";
 import { getTranslatedName, getTranslatedDescription } from "../../utils/translationHelpers";
-import { HomeIcon, ShoppingCartIcon } from "@heroicons/react/24/outline";
+import { HomeIcon, ShoppingCartIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
+import AdvertisementGallery from "./AdvertisementGallery";
+
+const HOME_PAGE_LIMIT = 24;
+const ALL_PRODUCTS_PAGE_SIZE = 24;
 
 const AllProducts = () => {
   const { addItem: addToCart } = useCart();
   const { addItem: addToGuestCart } = useGuestCart();
   const { isAuthenticated } = useAuth();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const searchQuery = searchParams.get("search") || "";
+  const isHomePage = location.pathname === "/";
+
   const [products, setProducts] = useState([]);
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -22,15 +31,13 @@ const AllProducts = () => {
   const [totalProducts, setTotalProducts] = useState(0);
   const { translate, currentLanguage } = useLanguage();
 
-  // เลือกฟังก์ชัน addItem ตามสถานะการล็อกอิน
   const addItem = isAuthenticated ? addToCart : addToGuestCart;
 
-  // Fetch initial data
   useEffect(() => {
+    setCurrentPage(1);
     fetchData();
-  }, []);
+  }, [isHomePage, searchQuery]);
 
-  // Fetch products when page or language changes
   useEffect(() => {
     if (restaurants.length > 0) {
       fetchProducts(currentPage);
@@ -50,38 +57,36 @@ const AllProducts = () => {
 
   const fetchProducts = async (page = 1) => {
     try {
-      // ใช้ loading เฉพาะเมื่อยังไม่มีข้อมูล หรือเปลี่ยนหน้า
       if (products.length === 0 || currentPage !== page) {
         setLoading(true);
       }
-      let url = "/products/";
+      const pageSize = isHomePage ? HOME_PAGE_LIMIT : ALL_PRODUCTS_PAGE_SIZE;
       const params = new URLSearchParams();
+      params.append("page", isHomePage ? 1 : page);
+      params.append("page_size", pageSize);
+      params.append("limit", pageSize);
+      if (searchQuery) params.append("search", searchQuery);
 
-      params.append("page", page);
-      params.append("page_size", "12"); // Show 12 products per page
-      params.append("limit", "12"); // Alternative parameter name for some APIs
-
-      url += "?" + params.toString();
-
-      const response = await api.get(url);
+      const response = await api.get(`/products/?${params.toString()}`);
       const data = response.data;
 
-      // Handle pagination data - ensure maximum 12 products per page
       if (data.results) {
-        // API with pagination support
-        const limitedProducts = data.results.slice(0, 12);
-        setProducts(limitedProducts);
+        const items = isHomePage ? data.results.slice(0, HOME_PAGE_LIMIT) : data.results;
+        setProducts(items);
         setTotalProducts(data.count || 0);
-        setTotalPages(Math.ceil((data.count || 0) / 12));
+        setTotalPages(isHomePage ? 1 : Math.ceil((data.count || 0) / pageSize));
       } else {
-        // API without pagination - implement client-side pagination
         const allProducts = data || [];
-        const startIndex = (page - 1) * 12;
-        const endIndex = startIndex + 12;
-        const limitedProducts = allProducts.slice(startIndex, endIndex);
-        setProducts(limitedProducts);
-        setTotalProducts(allProducts.length || 0);
-        setTotalPages(Math.ceil((allProducts.length || 0) / 12));
+        if (isHomePage) {
+          setProducts(allProducts.slice(0, HOME_PAGE_LIMIT));
+          setTotalProducts(allProducts.length || 0);
+          setTotalPages(1);
+        } else {
+          const startIndex = (page - 1) * pageSize;
+          setProducts(allProducts.slice(startIndex, startIndex + pageSize));
+          setTotalProducts(allProducts.length || 0);
+          setTotalPages(Math.ceil((allProducts.length || 0) / pageSize));
+        }
       }
     } catch (error) {
       console.error("Error fetching products:", error);
@@ -130,27 +135,19 @@ const AllProducts = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <nav className="text-sm mb-6">
-        <Link to="/" className="text-primary-500 hover:text-primary-600">
-          {translate("common.home")}
-        </Link>
-        <span className="mx-2 text-secondary-400">&gt;</span>
-        <span className="text-secondary-600">
-          {translate("common.all_products")}
-        </span>
-      </nav>
+    <div>
+      <AdvertisementGallery />
 
-      <div className="text-left sm:text-center mb-8">
-        <h1 className="hidden sm:block text-xl sm:text-3xl font-bold text-secondary-800 mb-2">
-          {translate("common.all_products")}
-        </h1>
-        <p className="hidden sm:block text-sm sm:text-base text-secondary-600">
-          {translate("common.choose_food_from_different_restaurants")} (
-          {totalProducts} {translate("order.items_count")})
-        </p>
-      </div>
-
+      <div className="container mx-auto px-4 py-8">
+      {searchQuery && (
+        <div className="mb-4 flex items-center gap-2 text-sm text-secondary-600">
+          <MagnifyingGlassIcon className="h-4 w-4" />
+          <span>{translate("common.search_results_for") || "ผลการค้นหา:"} <strong>"{searchQuery}"</strong></span>
+          <Link to="/products" className="ml-2 text-primary-500 hover:text-primary-700 underline">
+            {translate("common.clear_search") || "ล้างการค้นหา"}
+          </Link>
+        </div>
+      )}
       {products.length > 0 ? (
         <>
           <div className="grid grid-cols-1 gap-2 sm:gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -439,8 +436,20 @@ const AllProducts = () => {
             ))}
           </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
+          {/* View All button on home page */}
+          {isHomePage && (
+            <div className="mt-8 flex justify-center">
+              <Link
+                to="/products"
+                className="px-8 py-3 bg-primary-500 text-white rounded-lg font-semibold hover:bg-primary-600 transition-colors"
+              >
+                {translate("common.view_all_products") || "ดูสินค้าทั้งหมด"}
+              </Link>
+            </div>
+          )}
+
+          {/* Pagination - only on /products page */}
+          {!isHomePage && totalPages > 1 && (
             <div className="mt-8 flex justify-center">
               <div className="flex items-center space-x-2">
                 {/* Previous Button */}
@@ -524,6 +533,7 @@ const AllProducts = () => {
           </button>
         </div>
       )}
+      </div>
     </div>
   );
 };

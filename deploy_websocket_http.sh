@@ -1,4 +1,4 @@
-#!/bin/bash
+﻿#!/bin/bash
 
 # Deploy WebSocket Support Script (HTTP Version)
 # สำหรับ setup ปัจจุบันที่ใช้ HTTP และ React dev server
@@ -97,7 +97,7 @@ User=ubuntu
 Group=ubuntu
 WorkingDirectory=/home/ubuntu/food_delivery_asean_mall
 Environment=PATH=/home/ubuntu/food_delivery_asean_mall/venv/bin
-ExecStart=/home/ubuntu/food_delivery_asean_mall/venv/bin/daphne -b 127.0.0.1 -p 8001 food_delivery_backend.asgi:application
+ExecStart=/home/ubuntu/food_delivery_asean_mall/venv/bin/daphne -b 127.0.0.1 -p 8001 taca_backend.asgi:application
 Restart=always
 RestartSec=3
 

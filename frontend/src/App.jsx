@@ -57,10 +57,6 @@ const DineIn = lazy(() => import('./pages/customer/DineIn'));
 const DineInCart = lazy(() => import('./pages/customer/DineInCart'));
 const DineInOrderHistory = lazy(() => import('./pages/customer/DineInOrderHistory'));
 
-// Entertainment Pages
-const EntertainmentVenues = lazy(() => import('./pages/customer/entertainment/EntertainmentVenues'));
-const EntertainmentVenueDetail = lazy(() => import('./pages/customer/entertainment/EntertainmentVenueDetail'));
-
 // Admin Pages - โหลดเฉพาะเมื่อ admin เข้าใช้งาน
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
 const AdminOrders = lazy(() => import('./pages/admin/AdminOrders'));
@@ -73,11 +69,6 @@ const AdminRestaurantProducts = lazy(() => import('./pages/admin/AdminRestaurant
 const AdminUsers = lazy(() => import('./pages/admin/AdminUsers'));
 const AdminSettings = lazy(() => import('./pages/admin/AdminSettings'));
 const AdminAdvertisements = lazy(() => import('./pages/admin/AdminAdvertisements'));
-const AdminEntertainmentVenues = lazy(() => import('./pages/admin/AdminEntertainmentVenues'));
-const AdminVenueCategories = lazy(() => import('./pages/admin/AdminVenueCategories'));
-const AdminCountries = lazy(() => import('./pages/admin/AdminCountries'));
-const AdminCities = lazy(() => import('./pages/admin/AdminCities'));
-
 // Layouts - โหลดทันทีเพราะใช้บ่อย
 import CustomerLayout from './layouts/CustomerLayout';
 import RestaurantLayout from './layouts/RestaurantLayout';
@@ -167,10 +158,10 @@ function App() {
                     } />
 
 
-                    {/* Customer Routes - Venues as main page */}
+                    {/* Customer Routes - Products as main page */}
                     <Route path="/" element={
                       <CustomerLayout>
-                        <EntertainmentVenues />
+                        <AllProducts />
                       </CustomerLayout>
                     } />
 
@@ -207,18 +198,6 @@ function App() {
                     <Route path="/products" element={
                       <CustomerLayout>
                         <AllProducts />
-                      </CustomerLayout>
-                    } />
-
-                    <Route path="/entertainment-venues" element={
-                      <CustomerLayout>
-                        <EntertainmentVenues />
-                      </CustomerLayout>
-                    } />
-
-                    <Route path="/entertainment-venues/:id" element={
-                      <CustomerLayout>
-                        <EntertainmentVenueDetail />
                       </CustomerLayout>
                     } />
 
@@ -346,7 +325,7 @@ function App() {
 
                     {/* Restaurant Routes */}
                     <Route path="/restaurant" element={
-                      <ProtectedRoute allowedRoles={['general_restaurant', 'special_restaurant']}>
+                      <ProtectedRoute allowedRoles={['general_restaurant', 'special_restaurant', 'admin']}>
                         <RestaurantLayout>
                           <RestaurantDashboard />
                         </RestaurantLayout>
@@ -354,7 +333,7 @@ function App() {
                     } />
 
                     <Route path="/restaurant/orders" element={
-                      <ProtectedRoute allowedRoles={['general_restaurant', 'special_restaurant']}>
+                      <ProtectedRoute allowedRoles={['general_restaurant', 'special_restaurant', 'admin']}>
                         <RestaurantLayout>
                           <RestaurantOrders />
                         </RestaurantLayout>
@@ -362,7 +341,7 @@ function App() {
                     } />
 
                     <Route path="/restaurant/reviews" element={
-                      <ProtectedRoute allowedRoles={['general_restaurant', 'special_restaurant']}>
+                      <ProtectedRoute allowedRoles={['general_restaurant', 'special_restaurant', 'admin']}>
                         <RestaurantLayout>
                           <RestaurantReviews />
                         </RestaurantLayout>
@@ -370,7 +349,7 @@ function App() {
                     } />
 
                     <Route path="/restaurant/analytics" element={
-                      <ProtectedRoute allowedRoles={['general_restaurant', 'special_restaurant']}>
+                      <ProtectedRoute allowedRoles={['general_restaurant', 'special_restaurant', 'admin']}>
                         <RestaurantLayout>
                           <div className="p-8 text-center">
                             <h1 className="text-2xl font-bold">Restaurant analytics</h1>
@@ -381,7 +360,7 @@ function App() {
                     } />
 
                     <Route path="/restaurant/profile" element={
-                      <ProtectedRoute allowedRoles={['general_restaurant', 'special_restaurant']}>
+                      <ProtectedRoute allowedRoles={['general_restaurant', 'special_restaurant', 'admin']}>
                         <RestaurantLayout>
                           <RestaurantProfile />
                         </RestaurantLayout>
@@ -389,7 +368,7 @@ function App() {
                     } />
 
                     <Route path="/restaurant/tables" element={
-                      <ProtectedRoute allowedRoles={['general_restaurant', 'special_restaurant']}>
+                      <ProtectedRoute allowedRoles={['general_restaurant', 'special_restaurant', 'admin']}>
                         <RestaurantLayout>
                           <RestaurantTables />
                         </RestaurantLayout>
@@ -397,7 +376,7 @@ function App() {
                     } />
 
                     <Route path="/restaurant/dine-in-products" element={
-                      <ProtectedRoute allowedRoles={['general_restaurant', 'special_restaurant']}>
+                      <ProtectedRoute allowedRoles={['general_restaurant', 'special_restaurant', 'admin']}>
                         <RestaurantLayout>
                           <RestaurantDineInProducts />
                         </RestaurantLayout>
@@ -500,38 +479,6 @@ function App() {
                       <ProtectedRoute allowedRoles={['admin']}>
                         <AdminLayout>
                           <AdminAdvertisements />
-                        </AdminLayout>
-                      </ProtectedRoute>
-                    } />
-
-                    <Route path="/admin/entertainment-venues" element={
-                      <ProtectedRoute allowedRoles={['admin']}>
-                        <AdminLayout>
-                          <AdminEntertainmentVenues />
-                        </AdminLayout>
-                      </ProtectedRoute>
-                    } />
-
-                    <Route path="/admin/venue-categories" element={
-                      <ProtectedRoute allowedRoles={['admin']}>
-                        <AdminLayout>
-                          <AdminVenueCategories />
-                        </AdminLayout>
-                      </ProtectedRoute>
-                    } />
-
-                    <Route path="/admin/countries" element={
-                      <ProtectedRoute allowedRoles={['admin']}>
-                        <AdminLayout>
-                          <AdminCountries />
-                        </AdminLayout>
-                      </ProtectedRoute>
-                    } />
-
-                    <Route path="/admin/cities" element={
-                      <ProtectedRoute allowedRoles={['admin']}>
-                        <AdminLayout>
-                          <AdminCities />
                         </AdminLayout>
                       </ProtectedRoute>
                     } />

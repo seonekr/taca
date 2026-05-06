@@ -423,12 +423,11 @@ export const searchAddresses = async (query) => {
       return data.map(item => {
         const lat = parseFloat(item.lat);
         const lng = parseFloat(item.lon);
-        const shortAddress = formatShortAddress(item, lat, lng);
         return {
-          address: shortAddress || item.display_name,
+          address: item.display_name,
           lat: lat,
           lng: lng,
-          place_id: item.place_id
+          place_id: item.place_id,
         };
       });
     } else {

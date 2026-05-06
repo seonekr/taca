@@ -1699,8 +1699,8 @@ class DashboardViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['get'])
     def restaurant(self, request):
         """Restaurant owner dashboard"""
-        if request.user.role not in ['special_restaurant', 'general_restaurant']:
-            return Response({'error': 'Restaurant access required'}, 
+        if request.user.role not in ['special_restaurant', 'general_restaurant', 'admin']:
+            return Response({'error': 'Restaurant access required'},
                           status=status.HTTP_403_FORBIDDEN)
         
         try:

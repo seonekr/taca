@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { Transition } from "@headlessui/react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useCart } from "../../contexts/CartContext";
 import { useGuestCart } from "../../contexts/GuestCartContext";
@@ -11,7 +10,6 @@ import { checkAndSync, hasOfflineData, getLastSyncedAt, checkHasNewVersion } fro
 import {
   Bars3Icon,
   XMarkIcon,
-  MagnifyingGlassIcon,
   ShoppingCartIcon,
   BellIcon,
   UserIcon,
@@ -21,6 +19,7 @@ import {
   ArrowDownTrayIcon,
   CheckCircleIcon,
   CloudArrowDownIcon,
+  MagnifyingGlassIcon,
 } from "@heroicons/react/24/outline";
 
 const Header = ({ appSettings: appSettingsProp }) => {
@@ -36,9 +35,10 @@ const Header = ({ appSettings: appSettingsProp }) => {
   // const profileMenuRef = useRef(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [mobileEntertainmentSearchOpen, setMobileEntertainmentSearchOpen] = useState(false);
-  const [mobileEntertainmentSearchInput, setMobileEntertainmentSearchInput] = useState("");
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const dropdownRef = useRef(null);
+  const searchInputRef = useRef(null);
 
   // Offline download button state
   // 'idle' | 'syncing' | 'done' | 'uptodate' | 'error'
@@ -143,6 +143,22 @@ const Header = ({ appSettings: appSettingsProp }) => {
   //   return () => document.removeEventListener('mousedown', handleClickOutside);
   // }, []);
 
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    const q = searchQuery.trim();
+    if (!q) return;
+    setIsSearchOpen(false);
+    setSearchQuery("");
+    navigate(`/products?search=${encodeURIComponent(q)}`);
+  };
+
+  const toggleSearch = () => {
+    setIsSearchOpen((prev) => {
+      if (!prev) setTimeout(() => searchInputRef.current?.focus(), 50);
+      return !prev;
+    });
+  };
+
   const handleLogout = async () => {
     const confirmed = window.confirm(
       translate("auth.confirm_logout") || "Are you sure you want to log out?"
@@ -221,17 +237,11 @@ const Header = ({ appSettings: appSettingsProp }) => {
       ];
     } else if (user.role === "admin") {
       return [
-        // ...baseItems,
         {
           name: translate("admin.role.admin"),
           href: "/admin",
-          current: location.pathname === "/admin",
+          current: location.pathname.startsWith("/admin"),
         },
-        // { name: translate('admin.users'), href: '/admin/users', current: location.pathname === '/admin/users' },
-        // { name: translate('admin.restaurants'), href: '/admin/restaurants', current: location.pathname === '/admin/restaurants' },
-        // { name: translate('admin.categories'), href: '/admin/categories', current: location.pathname === '/admin/categories' },
-        // { name: translate('admin.orders'), href: '/admin/orders', current: location.pathname === '/admin/orders' },
-        // { name: translate('admin.settings'), href: '/admin/settings', current: location.pathname === '/admin/settings' },
       ];
     } else if (
       user.role === "special_restaurant" ||
@@ -239,7 +249,7 @@ const Header = ({ appSettings: appSettingsProp }) => {
     ) {
       return [
         {
-          name: "My restaurant",
+          name: translate("restaurant.my_restaurant") || "My Store",
           href: "/restaurant",
           current: location.pathname.startsWith("/restaurant"),
         },
@@ -288,9 +298,9 @@ const Header = ({ appSettings: appSettingsProp }) => {
   
   // ซ่อน cart icon เมื่ออยู่ในหน้า dine-in (เพราะมี cart summary bar ด้านล่างแล้ว)
   const isDineInPage = location.pathname.startsWith('/dine-in/');
-  const pathLower = (location.pathname || "").toLowerCase();
   const syncLabel = {
     idle: "บันทึกข้อมูล offline",
+
     syncing: "กำลังดาวน์โหลด...",
     done: lastSynced
       ? `อัปเดตล่าสุด ${new Date(lastSynced).toLocaleDateString("th-TH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`
@@ -352,30 +362,6 @@ const Header = ({ appSettings: appSettingsProp }) => {
     </button>
   );
 
-  const isEntertainmentListPage =
-    pathLower === "/" ||
-    pathLower.includes("home") ||
-    pathLower.includes("entertainment");
-
-  useEffect(() => {
-    if (!isEntertainmentListPage) {
-      setMobileEntertainmentSearchOpen(false);
-      setMobileEntertainmentSearchInput("");
-      return;
-    }
-    const params = new URLSearchParams(location.search || "");
-    setMobileEntertainmentSearchInput(params.get("q") || "");
-  }, [isEntertainmentListPage, location.pathname, location.search]);
-
-  const pushEntertainmentSearchQuery = (value) => {
-    const params = new URLSearchParams(location.search || "");
-    const q = (value || "").trim();
-    if (q) params.set("q", q);
-    else params.delete("q");
-    const next = params.toString();
-    navigate(`${location.pathname}${next ? `?${next}` : ""}`, { replace: true });
-  };
-
   return (
     <header className="fixed top-0 left-0 right-0 z-[1100] bg-white shadow-lg border-b border-secondary-200">
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -423,65 +409,38 @@ const Header = ({ appSettings: appSettingsProp }) => {
           </div>
 
           {/* Right side buttons */}
-          <div
-            className={[
-              "flex items-center w-full md:w-auto",
-              isEntertainmentListPage ? "justify-between md:justify-end" : "justify-end",
-              "space-x-2 md:space-x-4",
-            ].join(" ")}
-          >
-            <Transition
-              show={isEntertainmentListPage && mobileEntertainmentSearchOpen}
-              enter="transition-all duration-300 ease-out origin-left"
-              enterFrom="opacity-0 scale-x-75"
-              enterTo="opacity-100 scale-x-100"
-              leave="transition-all duration-220 ease-in origin-left"
-              leaveFrom="opacity-100 scale-x-100"
-              leaveTo="opacity-0 scale-x-75"
-            >
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  pushEntertainmentSearchQuery(mobileEntertainmentSearchInput);
-                }}
-                className="md:hidden -ml-2 flex items-center gap-2 w-[calc(100%+0.5rem)]"
-              >
-                <div className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-2.5 py-1.5 w-full">
-                  <MagnifyingGlassIcon className="h-4 w-4 text-secondary-400 shrink-0" />
+          <div className="flex items-center justify-end w-full md:w-auto space-x-2 md:space-x-4">
+            {/* Search bar - desktop */}
+            <div className="hidden md:flex items-center">
+              {isSearchOpen ? (
+                <form onSubmit={handleSearchSubmit} className="flex items-center">
                   <input
+                    ref={searchInputRef}
                     type="text"
-                    value={mobileEntertainmentSearchInput}
-                    onChange={(e) => setMobileEntertainmentSearchInput(e.target.value)}
-                    placeholder={translate("entertainment.search_placeholder") || "Search..."}
-                    className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder={translate("common.search") || "ค้นหา..."}
+                    className="w-48 lg:w-64 px-3 py-1.5 text-sm border border-secondary-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent"
+                    onKeyDown={(e) => e.key === "Escape" && setIsSearchOpen(false)}
                   />
                   <button
                     type="submit"
-                    className="shrink-0 rounded-lg bg-primary-500 hover:bg-primary-600 px-2 py-1 text-xs font-semibold text-white"
+                    className="px-3 py-1.5 bg-primary-500 text-white rounded-r-lg hover:bg-primary-600 transition-colors"
                   >
-                    {translate("common.search") || "Search"}
+                    <MagnifyingGlassIcon className="h-4 w-4" />
                   </button>
-                </div>
+                </form>
+              ) : (
                 <button
-                  type="button"
-                  onClick={() => setMobileEntertainmentSearchOpen(false)}
-                  className="shrink-0 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-semibold text-secondary-600"
+                  onClick={toggleSearch}
+                  className="p-2 text-secondary-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                  title={translate("common.search") || "ค้นหา"}
                 >
-                  {translate("common.close") || "Close"}
+                  <MagnifyingGlassIcon className="h-5 w-5" />
                 </button>
-              </form>
-            </Transition>
+              )}
+            </div>
 
-            <Transition
-              show={!(isEntertainmentListPage && mobileEntertainmentSearchOpen)}
-              enter="transition-opacity duration-180 ease-out"
-              enterFrom="opacity-0"
-              enterTo="opacity-100"
-              leave="transition-opacity duration-120 ease-in"
-              leaveFrom="opacity-100"
-              leaveTo="opacity-0"
-            >
-              <div className="contents">
             {/* Language Switcher + Download button - เฉพาะ desktop/tablet */}
             <div className="hidden md:flex items-center gap-1.5">
               <DownloadButton />
@@ -594,20 +553,14 @@ const Header = ({ appSettings: appSettingsProp }) => {
                 </Link>
               </div>
             )}
-            {/* Mobile search button for entertainment list page */}
-            {isEntertainmentListPage && (
+            {/* Mobile: Download + Language + Menu ชิดกันทางขวา */}
+            <div className="md:hidden flex items-center gap-1 ml-auto">
               <button
-                type="button"
-                onClick={() => setMobileEntertainmentSearchOpen(true)}
-                className="order-first md:hidden -ml-2 p-2 rounded-md text-secondary-500 hover:text-secondary-700 hover:bg-secondary-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500"
-                aria-label={translate("common.search") || "Search"}
+                onClick={toggleSearch}
+                className="p-2 text-secondary-500 hover:text-primary-600 rounded-lg transition-colors"
               >
                 <MagnifyingGlassIcon className="h-5 w-5" />
               </button>
-            )}
-
-            {/* Mobile: Download + Language + Menu ชิดกันทางขวา */}
-            <div className="md:hidden flex items-center gap-1 ml-auto">
               {mobileShowBtn && <DownloadButton compact />}
               <div className="block">
                 <LanguageSwitcher />
@@ -667,10 +620,32 @@ const Header = ({ appSettings: appSettingsProp }) => {
               </div>
               )}
             </div>
-              </div>
-            </Transition>
           </div>
         </div>
+
+        {/* Mobile search bar */}
+        {isSearchOpen && (
+          <div className="md:hidden px-4 pb-3">
+            <form onSubmit={handleSearchSubmit} className="flex items-center">
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={translate("common.search") || "ค้นหา..."}
+                className="flex-1 px-3 py-2 text-sm border border-secondary-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
+                onKeyDown={(e) => e.key === "Escape" && setIsSearchOpen(false)}
+                autoFocus
+              />
+              <button
+                type="submit"
+                className="px-4 py-2 bg-primary-500 text-white rounded-r-lg hover:bg-primary-600 transition-colors"
+              >
+                <MagnifyingGlassIcon className="h-5 w-5" />
+              </button>
+            </form>
+          </div>
+        )}
 
         {/* Mobile menu - ซ่อนในหน้า dine-in */}
         {isMobileMenuOpen && !isDineInPage && (

@@ -1,18 +1,13 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../../contexts/LanguageContext';
 import Loading from '../../../components/common/Loading';
 import VenuesMap from '../../../components/entertainment/VenuesMap';
-import VenueLocationFilterListboxes from '../../../components/entertainment/VenueLocationFilterListboxes';
-import { reverseGeocodeStructured } from '../../../utils/nominatim';
-import { matchCountryId } from '../../../utils/locationMatch';
 import { loadOfflineData, hasOfflineData } from '../../../utils/syncManager';
 import {
   entertainmentVenueService,
   venueCategoryService,
   restaurantService,
-  countryService,
-  cityService,
 } from '../../../services/api';
 import {
   FaTheaterMasks,
@@ -56,11 +51,6 @@ const EntertainmentVenues = () => {
   const [selectedCategory, setSelectedCategory] = useState(null);
   // eslint-disable-next-line no-unused-vars
   const [sortBy, setSortBy] = useState('rating');
-  const [locationCountry, setLocationCountry] = useState('');
-  const [locationCity, setLocationCity] = useState('');
-  const [countriesList, setCountriesList] = useState([]);
-  const [citiesList, setCitiesList] = useState([]);
-  const [locationBootstrapDone, setLocationBootstrapDone] = useState(false);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [userCoords, setUserCoords] = useState(() => {
     // อ่าน GPS ที่ cache ไว้จาก session ก่อน ทำให้ map เริ่มต้นที่ตำแหน่งปัจจุบันทันทีตอน refresh
@@ -77,41 +67,6 @@ const EntertainmentVenues = () => {
   const { translate, currentLanguage } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
-  /** หลังผู้ใช้เลือกประเทศ/เมืองเอง — ไม่ให้ geolocation ทับ country จนเมืองหลุดหรือ filter ผิด */
-  const userAdjustedLocationRef = useRef(false);
-
-  const filteredCities = useMemo(() => {
-    if (!locationCountry) return [];
-    return citiesList.filter((c) => String(c.country) === String(locationCountry));
-  }, [citiesList, locationCountry]);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const [cRes, ciRes] = await Promise.all([
-          countryService.getAll(),
-          cityService.getAll(),
-        ]);
-        if (cancelled) return;
-        let countries = cRes.data?.results || cRes.data || [];
-        let cities = ciRes.data?.results || ciRes.data || [];
-        if (!Array.isArray(countries)) countries = [];
-        if (!Array.isArray(cities)) cities = [];
-        setCountriesList(countries);
-        setCitiesList(cities);
-        if (!countries.length) {
-          setLocationBootstrapDone(true);
-        }
-      } catch (err) {
-        console.error('Error fetching countries/cities:', err);
-        setLocationBootstrapDone(true);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   /** ตรวจสอบ online/offline แบบ realtime */
   useEffect(() => {
@@ -124,69 +79,6 @@ const EntertainmentVenues = () => {
       window.removeEventListener('offline', onOffline);
     };
   }, []);
-
-  /** Bootstrap ทันทีด้วย country แรก (ไม่รวม geolocation เพื่อหลีกเลี่ยง stale cancelled) */
-  useEffect(() => {
-    if (locationBootstrapDone) return;
-    if (!countriesList.length) return;
-    setLocationCountry(String(countriesList[0].country_id));
-    setLocationBootstrapDone(true);
-  }, [countriesList, locationBootstrapDone]);
-
-  /** Geolocation แยกต่างหาก — deps ไม่มี locationBootstrapDone จึงไม่ถูก cancel */
-  useEffect(() => {
-    if (!countriesList.length) return;
-    if (typeof navigator === 'undefined' || !navigator.geolocation) return;
-    let cancelled = false;
-
-    const handlePosition = async (pos) => {
-      if (cancelled) return;
-      const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-      setUserCoords(coords);
-      // eslint-disable-next-line no-unused-vars, no-empty
-      try { sessionStorage.setItem('ev_userCoords', JSON.stringify(coords)); } catch (_) {}
-      try {
-        const parts = await reverseGeocodeStructured(pos.coords.latitude, pos.coords.longitude);
-        if (cancelled) return;
-        if (parts && (parts.country || parts.country_code)) {
-          const cid = matchCountryId(countriesList, parts);
-          if (!userAdjustedLocationRef.current) {
-            setLocationCountry(String(cid));
-          }
-        }
-      } catch (e) {
-        console.warn('EntertainmentVenues: reverse geocode failed', e);
-      }
-    };
-
-    // รอบแรก: low-accuracy เร็ว
-    navigator.geolocation.getCurrentPosition(
-      handlePosition,
-      () => {
-        if (cancelled) return;
-        // fallback high-accuracy
-        navigator.geolocation.getCurrentPosition(
-          handlePosition,
-          () => {},
-          { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-        );
-      },
-      { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
-    );
-
-    return () => { cancelled = true; };
-  }, [countriesList]);
-
-  // ตรวจว่าเมืองที่เลือกยังอยู่ในประเทศที่เลือกอยู่ ถ้าไม่ใช่ให้ reset เป็น '' (ทุกเมือง)
-  useEffect(() => {
-    if (!locationCity) return;
-    const ok = citiesList.some(
-      (c) =>
-        String(c.city_id) === String(locationCity) &&
-        String(c.country) === String(locationCountry)
-    );
-    if (!ok) setLocationCity('');
-  }, [locationCountry, locationCity, citiesList]);
 
   // Fetch categories
   useEffect(() => {
@@ -203,28 +95,27 @@ const EntertainmentVenues = () => {
     fetchCategories();
   }, []);
 
-  // Fetch venues and restaurants (หลังเลือกประเทศ/เมือง default แล้ว)
+  // Fetch venues and restaurants
   useEffect(() => {
     let cancelled = false;
-    if (!locationBootstrapDone || !locationCountry) {
-      return () => {
-        cancelled = true;
-      };
-    }
-
     setLoading(true);
     setError(null);
 
     const fetchData = async () => {
       try {
+        const restaurantCatIds = categories
+          .filter((c) => {
+            const n = (c.category_name || '').toLowerCase();
+            return n === 'restaurant' || n === 'restaurants';
+          })
+          .map((c) => Number(c.category_id));
+
         if (selectedCategory !== CATEGORY_RESTAURANTS) {
           const params = { page_size: 100 };
           if (searchQuery) params.search = searchQuery;
           if (selectedCategory != null && selectedCategory !== CATEGORY_RESTAURANTS) {
             params.category = Number(selectedCategory);
           }
-          params.country = parseInt(locationCountry, 10);
-          if (locationCity) params.city = parseInt(locationCity, 10);
           if (sortBy === 'rating') params.ordering = '-average_rating';
           else if (sortBy === 'name') params.ordering = 'venue_name';
 
@@ -249,14 +140,48 @@ const EntertainmentVenues = () => {
           }
           if (!cancelled) setVenues(fetchedVenues);
         } else {
-          setVenues([]);
+          // fetch entertainment venues ที่อยู่ใน category "restaurant" ด้วย
+          if (restaurantCatIds.length > 0) {
+            const venueResponses = await Promise.all(
+              restaurantCatIds.map((catId) => {
+                const params = { page_size: 100, category: catId };
+                if (searchQuery) params.search = searchQuery;
+                return entertainmentVenueService.getAll(params);
+              })
+            );
+            let fetchedVenues = venueResponses.flatMap((r) => r.data?.results || r.data || []);
+            const seen = new Set();
+            fetchedVenues = fetchedVenues.filter((v) => {
+              if (seen.has(v.venue_id)) return false;
+              seen.add(v.venue_id);
+              return true;
+            });
+            if (userCoords) {
+              fetchedVenues = [...fetchedVenues].sort((a, b) => {
+                const alat = toNum(a.latitude);
+                const alng = toNum(a.longitude);
+                const blat = toNum(b.latitude);
+                const blng = toNum(b.longitude);
+                const ad =
+                  alat != null && alng != null
+                    ? haversineKm(userCoords.lat, userCoords.lng, alat, alng)
+                    : Number.POSITIVE_INFINITY;
+                const bd =
+                  blat != null && blng != null
+                    ? haversineKm(userCoords.lat, userCoords.lng, blat, blng)
+                    : Number.POSITIVE_INFINITY;
+                return ad - bd;
+              });
+            }
+            if (!cancelled) setVenues(fetchedVenues);
+          } else {
+            if (!cancelled) setVenues([]);
+          }
         }
 
         if (selectedCategory === CATEGORY_RESTAURANTS || selectedCategory === null) {
           const params = { page_size: 100 };
           if (searchQuery) params.search = searchQuery;
-          params.country = parseInt(locationCountry, 10);
-          if (locationCity) params.city = parseInt(locationCity, 10);
           const res = await restaurantService.getAll(params);
           let fetched = res.data?.results || res.data || [];
           if (!Array.isArray(fetched)) fetched = [];
@@ -289,20 +214,14 @@ const EntertainmentVenues = () => {
         if ((offline || err.message?.includes('Network')) && hasCache) {
           try {
             const { venues: ov, restaurants: or_ } = await loadOfflineData();
-            let filteredVenues = ov.filter(
-              (v) => !locationCountry || String(v.country) === String(locationCountry)
-            );
-            if (locationCity) filteredVenues = filteredVenues.filter((v) => String(v.city) === String(locationCity));
+            let filteredVenues = ov;
             if (searchQuery) {
               const q = searchQuery.toLowerCase();
               filteredVenues = filteredVenues.filter((v) =>
                 (v.venue_name || '').toLowerCase().includes(q)
               );
             }
-            let filteredRest = or_.filter(
-              (r) => !locationCountry || String(r.country) === String(locationCountry)
-            );
-            if (locationCity) filteredRest = filteredRest.filter((r) => String(r.city) === String(locationCity));
+            let filteredRest = or_;
             if (searchQuery) {
               const q = searchQuery.toLowerCase();
               filteredRest = filteredRest.filter((r) =>
@@ -346,16 +265,12 @@ const EntertainmentVenues = () => {
     searchQuery,
     selectedCategory,
     sortBy,
-    locationCountry,
-    locationCity,
-    locationBootstrapDone,
     userCoords,
     currentLanguage,
+    categories,
   ]);
 
-  const isLoading =
-    !locationBootstrapDone ||
-    (loading && venues.length === 0 && restaurants.length === 0);
+  const isLoading = loading && venues.length === 0 && restaurants.length === 0;
 
   const commitSearch = (value) => {
     setSearchQuery(value.trim());
@@ -380,7 +295,10 @@ const EntertainmentVenues = () => {
   }, [location.search]);
 
   const displayPlaces = selectedCategory === CATEGORY_RESTAURANTS
-    ? restaurants.map((r) => ({ type: 'restaurant', ...r }))
+    ? [
+        ...venues.map((v) => ({ type: 'venue', ...v })),
+        ...restaurants.map((r) => ({ type: 'restaurant', ...r })),
+      ]
     : selectedCategory === null
       ? [
           ...venues.map((v) => ({ type: 'venue', ...v })),
@@ -423,27 +341,6 @@ const EntertainmentVenues = () => {
             {translate('entertainment.venues') || 'สถานที่บันเทิง'}
           </h1>
           <div className="flex flex-wrap items-center gap-2 mb-3 min-w-0">
-            <div className="w-full min-w-0 sm:flex-1 px-0.5">
-              <VenueLocationFilterListboxes
-                countriesList={countriesList}
-                filteredCities={filteredCities}
-                locationCountry={locationCountry}
-                locationCity={locationCity}
-                onCountryChange={(id) => {
-                  userAdjustedLocationRef.current = true;
-                  setLocationCountry(id);
-                  setLocationCity('');
-                  setSelectedCategory(null);
-                }}
-                onCityChange={(id) => {
-                  userAdjustedLocationRef.current = true;
-                  setLocationCity(id);
-                  setSelectedCategory(null);
-                }}
-                translate={translate}
-              />
-            </div>
-
             <form onSubmit={handleSearch} className="hidden sm:block sm:w-auto sm:flex-none">
               <div className="flex items-center gap-1.5 rounded-xl border border-gray-200/90 bg-gradient-to-b from-white to-gray-50/80 shadow-sm px-2.5 py-1.5 transition focus-within:border-primary-400 focus-within:ring-2 focus-within:ring-primary-500/20 w-full sm:w-[320px]">
                 <FaSearch className="shrink-0 h-3.5 w-3.5 text-gray-400" aria-hidden />
@@ -503,7 +400,9 @@ const EntertainmentVenues = () => {
               {translate('common.restaurants') || 'ร้านอาหาร'}
             </button>
             {Array.isArray(categories) &&
-              categories.map((category) => (
+              categories
+              .filter((category) => category.category_name?.toLowerCase() !== 'restaurant' && category.category_name?.toLowerCase() !== 'restaurants')
+              .map((category) => (
                 <button
                   key={category.category_id}
                   type="button"
@@ -549,7 +448,6 @@ const EntertainmentVenues = () => {
               height="100%"
               onPlaceClick={handlePlaceClick}
               userCoords={userCoords}
-              locationCity={locationCity}
               onUserCoordsChange={setUserCoords}
               searchQuery={searchQuery}
             />

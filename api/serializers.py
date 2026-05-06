@@ -423,11 +423,11 @@ class RestaurantSerializer(serializers.ModelSerializer):
         # à¸‹à¸´à¸‡à¸à¹Œ User role à¹€à¸¡à¸·à¹ˆà¸­ is_special à¹€à¸›à¸¥à¸µà¹ˆà¸¢à¸™à¹à¸›à¸¥à¸‡
         if 'is_special' in validated_data and validated_data['is_special'] != old_is_special:
             user = instance.user
-            new_role = 'special_restaurant' if validated_data['is_special'] else 'general_restaurant'
-            
-            if user.role != new_role:
-                user.role = new_role
-                user.save()
+            if user.role != 'admin':
+                new_role = 'special_restaurant' if validated_data['is_special'] else 'general_restaurant'
+                if user.role != new_role:
+                    user.role = new_role
+                    user.save()
                 # print(f"ðŸ”„ Auto-sync: Restaurant {instance.restaurant_name} is_special={validated_data['is_special']} â†’ User {user.username} role={new_role}")
         
         return instance

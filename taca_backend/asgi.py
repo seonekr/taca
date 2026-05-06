@@ -1,5 +1,5 @@
 """
-ASGI config for food_delivery_backend project.
+ASGI config for taca_backend project.
 
 It exposes the ASGI callable as a module-level variable named ``application``.
 
@@ -11,7 +11,7 @@ import os
 import django
 from django.core.asgi import get_asgi_application
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "food_delivery_backend.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "taca_backend.settings")
 
 # Initialize Django first
 django.setup()

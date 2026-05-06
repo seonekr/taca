@@ -10,6 +10,7 @@ const RestaurantDashboard = () => {
   const { user } = useAuth();
   const { translate } = useLanguage();
   const [loading, setLoading] = useState(true);
+  const [noStore, setNoStore] = useState(false);
   const [stats, setStats] = useState({
     todayOrders: 0,
     todaySales: 0,
@@ -61,6 +62,7 @@ const RestaurantDashboard = () => {
         });
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
+        if (error?.response?.status === 404) setNoStore(true);
       } finally {
         setLoading(false);
       }
@@ -88,10 +90,29 @@ const RestaurantDashboard = () => {
     );
   }
 
+  if (noStore) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="bg-white rounded-lg shadow-md p-8 text-center">
+          <div className="text-6xl mb-4 opacity-30">🏪</div>
+          <h2 className="text-xl font-semibold text-secondary-700 mb-2">
+            {t('restaurant.no_store_linked', 'No store linked to this account')}
+          </h2>
+          <p className="text-secondary-500 mb-6">
+            {t('restaurant.no_store_linked_desc', 'Please link a store to your account in the admin panel first.')}
+          </p>
+          <Link to="/admin/restaurants" className="bg-primary-500 text-white px-6 py-3 rounded-lg hover:bg-primary-600 transition-colors">
+            {t('restaurant.go_to_stores', 'Go to Stores Management')}
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold text-secondary-800 mb-6">
-        {t('restaurant.dashboard.title', 'Restaurant dashboard')}
+        {t('restaurant.dashboard.title', 'Store dashboard')}
       </h1>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-white rounded-lg shadow-md p-6">
@@ -152,7 +173,7 @@ const RestaurantDashboard = () => {
           <FaRocket className="w-16 h-16 text-primary-500" />
         </div>
         <h2 className="text-xl font-semibold text-secondary-700 mb-2">
-          {t('restaurant.dashboard.cta_title', 'Start managing your restaurant')}
+          {t('restaurant.dashboard.cta_title', 'Start managing your store')}
         </h2>
         <p className="text-secondary-500 mb-6">
           {t('restaurant.dashboard.cta_subtitle', 'Add menu, manage orders, and track sales')}
